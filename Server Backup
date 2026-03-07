@@ -1,0 +1,20 @@
+#!/bin/bash
+
+PW="inputpassword"
+
+echo "start to send folders involving log_backup"
+
+expect <<EOF
+spawn scp -o StrictHostkeyChecking=no -prv [전달할 폴더 절대경로] [목적지 계정]@[목적지 IP]:[목적지 폴더 절대경로]
+expect 'password:'
+send $PW\r 
+#PW에서 inputpassword 값을 받아옴. 
+set timeout -1
+expect eof
+EOF
+
+echo "*****************************************************"
+echo "*****************************************************"
+echo "success to send folders involving log_backup"
+echo "*****************************************************"
+echo "*****************************************************"
