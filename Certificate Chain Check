@@ -1,0 +1,17 @@
+for host in \
+ssm.ap-northeast-2.amazonaws.com \
+ssmmessages.ap-northeast-2.amazonaws.com \
+ec2messages.ap-northeast-2.amazonaws.com
+do
+  echo
+  echo "===== $host ====="
+
+  echo | openssl s_client \
+    -connect ${host}:443 \
+    -servername ${host} \
+    -verify 5 2>&1 \
+    | tee /tmp/${host}.sslcheck \
+    | openssl x509 -noout -subject -issuer -dates
+
+  grep -i "Verify return code" /tmp/${host}.sslcheck
+done
