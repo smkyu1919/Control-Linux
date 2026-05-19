@@ -1,6 +1,18 @@
+#==================== 권장 UUID 형 ===============================================================
+#AWS의 경우 Type이 바뀌면 Zen -> nitro처럼 가상화 타입이 변경될 수 있는데 이때, 파일 시스템 확장자가 달라짐에 따라 fstab 등록된 라벨(파일시스템)열 값에 따라 부팅이 안될 우려도 있어 UUID 형태를 권장
+
 mp=(Mount 경로)
 dev=$(findmnt -n -o SOURCE --target "$mp")
 uuid=$(blkid -s UUID -o value "$dev")
 fstype=$(findmnt -n -o FSTYPE --target "$mp")
 
 printf "UUID=%s\t%s\t%s\tdefaults,nofail,noatime\t0\t2\n" "$uuid" "$mp" "$fstype"
+
+
+#==================== 기존 라벨 형 ===============================================================
+
+#mp=(Mount 경로)
+#dev=$(findmnt -n -o SOURCE --target "$mp")
+#fstype=$(findmnt -n -o FSTYPE --target "$mp")
+
+#printf "%s\t%s\t%s\tdefaults,nofail,noatime\t0\t2\n" "$dev" "$mp" "$fstype"
