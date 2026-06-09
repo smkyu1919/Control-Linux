@@ -23,3 +23,14 @@ so = swap out
 | `si/so`가 계속 0   | 메모리 압박 낮음     
 | `si/so`가 간헐적 발생 | 메모리 압박 시작      
 | `si/so`가 지속 발생  | DB 성능 저하 가능성 높음 
+
+
+
+# Used Memory per Prosess
+ps -eo pid,ppid,user,comm,rss,vsz,%mem --sort=-rss | head -30
+
+| 기준  | 설명                          
+| --- | ----------------------------
+| RSS | 해당 프로세스가 매핑한 메모리 크기         
+| PSS | 공유 메모리를 프로세스 수로 나눈 실질 점유 추정치
+| VSZ | 가상 주소 공간, 실제 물리 메모리 사용량 아님 
