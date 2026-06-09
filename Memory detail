@@ -12,9 +12,10 @@ cat /proc/meminfo | egrep 'MemTotal|MemFree|MemAvailable|Buffers|Cached|SReclaim
 | `HugePages_Total` | Oracle SGA용 HugePages 사용 가능성 
 | `HugePages_Free`  | 예약됐지만 아직 사용 안 된 HugePages 
 
+
+
 # Memory Pressure
 vmstat 1 10
-
 
 si = swap in
 so = swap out
