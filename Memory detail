@@ -1,0 +1,13 @@
+# Memory Detail
+cat /proc/meminfo | egrep 'MemTotal|MemFree|MemAvailable|Buffers|Cached|SReclaimable|SUnreclaim|SwapTotal|SwapFree|Committed_AS|CommitLimit|Huge'
+
+| 항목              | 의미                           
+| ----------------- | -----------------------------------
+| `MemAvailable`    | 실제 추가로 쓸 수 있는 메모리 추정치
+| `Cached`          | 파일 캐시                        
+| `SReclaimable`    | 회수 가능한 커널 slab 캐시         
+| `SUnreclaim`      | 회수 어려운 커널 메모리             
+| `Committed_AS`    | 프로세스들이 예약한 가상 메모리 총량 
+| `CommitLimit`     | 시스템이 허용 가능한 커밋 한계      
+| `HugePages_Total` | Oracle SGA용 HugePages 사용 가능성 
+| `HugePages_Free`  | 예약됐지만 아직 사용 안 된 HugePages 
