@@ -11,3 +11,15 @@ cat /proc/meminfo | egrep 'MemTotal|MemFree|MemAvailable|Buffers|Cached|SReclaim
 | `CommitLimit`     | 시스템이 허용 가능한 커밋 한계      
 | `HugePages_Total` | Oracle SGA용 HugePages 사용 가능성 
 | `HugePages_Free`  | 예약됐지만 아직 사용 안 된 HugePages 
+
+# Memory Pressure
+vmstat 1 10
+
+
+si = swap in
+so = swap out
+| 상태            | 판단            
+| --------------- | --------------- 
+| `si/so`가 계속 0   | 메모리 압박 낮음     
+| `si/so`가 간헐적 발생 | 메모리 압박 시작      
+| `si/so`가 지속 발생  | DB 성능 저하 가능성 높음 
