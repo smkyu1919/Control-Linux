@@ -1,19 +1,35 @@
 ############################################################################################
 # Memory Detail
 ############################################################################################
-cat /proc/meminfo | egrep 'MemTotal|MemFree|MemAvailable|Buffers|Cached|SReclaimable|SUnreclaim|SwapTotal|SwapFree|Committed_AS|CommitLimit|Huge'
+cat /proc/meminfo | egrep 'MemTotal|MemFree|MemAvailable|Buffers|Cached|SReclaimable|SUnreclaim|SwapTotal|SwapFree|Committed_AS|CommitLimit|Huge' | \
+awk '{gsub(":","",$1); if ($3=="kB") printf "%-18s %12.1f MB\n", $1, $2/1024; else printf "%-18s %12s\n", $1, $2}'
 --------------------------------------------------------------------------------------------
 
-| 항목              | 의미                           
-| ----------------- | -----------------------------------
-| `MemAvailable`    | 실제 추가로 쓸 수 있는 메모리 추정치
-| `Cached`          | 파일 캐시                        
-| `SReclaimable`    | 회수 가능한 커널 slab 캐시         
-| `SUnreclaim`      | 회수 어려운 커널 메모리             
-| `Committed_AS`    | 프로세스들이 예약한 가상 메모리 총량 
-| `CommitLimit`     | 시스템이 허용 가능한 커밋 한계      
-| `HugePages_Total` | Oracle SGA용 HugePages 사용 가능성 
-| `HugePages_Free`  | 예약됐지만 아직 사용 안 된 HugePages 
+| List              | 의미                                        
+| ----------------- | ----------------------------------------------
+| `MemAvailable`    | 신규 프로세스나 기존 프로세스가 추가로 사용할 수 있는 실질 가용 메모리 추정치  
+| `Cached`          | 디스크 I/O를 줄이기 위해 파일 데이터를 메모리에 보관한 파일 캐시        
+| `SwapTotal`       | 시스템에 설정된 전체 Swap 공간                           
+| `SwapFree`        | 아직 사용 가능한 Swap 공간                        
+| `SReclaimable`    | 커널이 관리 중이지만 필요 시 회수 가능한 Slab 캐시               
+| `SUnreclaim`      | 커널이 사용 중이며 즉시 회수하기 어려운 Slab 메모리              
+| `CommitLimit`     | 시스템이 허용하는 전체 메모리 커밋 한계                        
+| `Committed_AS`    | 프로세스들이 사용 가능성 기준으로 예약한 가상 메모리 총량              
+| `AnonHugePages`   | 프로세스의 익명 메모리 중 Transparent HugePages로 잡힌 영역   
+| `HugePages_Total` | Oracle SGA 같은 대형 공유 메모리용으로 예약된 HugePages 전체 규모
+| `HugePages_Free`  | HugePages 전용 영역 안에서 아직 사용되지 않은 예약 여유분         
+| `Hugepagesize`    | HugePages 1개당 크기. 일반적으로 2MB                   
+
+| List           | 의미                                                                      
+| -------------- | ---------------------------------------------------------------------------
+| Slab           | 커널 객체 캐시 영역. 파일 메타데이터, inode, dentry, 네트워크 객체 등 커널 내부 구조체를 빠르게 재사용하기 위한 메모리
+| `SReclaimable` | Slab 중 회수 가능한 영역. 메모리 압박 시 일부 반환 가능                                        
+| `SUnreclaim`   | Slab 중 회수하기 어려운 영역. 비정상 증가 시 커널 모듈, 드라이버, 보안 Agent 계층 확인 필요              
+| HugePages      | 대용량 메모리를 4KB가 아닌 2MB 단위 큰 페이지로 관리하는 방식                                     
+| HugePages Rsvd | 일반 메모리와 분리된 전용 풀을 미리 확보하는 구조                                              
+| HugePages Free | 전용 풀 안의 미사용분. 일반 프로세스가 바로 사용하는 `MemAvailable`과는 성격이 다름                     
+| SGA            | Oracle 인스턴스가 공유하는 메모리 영역. Buffer Cache, Shared Pool 등 DB 공용 메모리 구성         
+| PGA            | Oracle 서버 프로세스별 작업 메모리. 정렬, 해시 조인, 세션 작업 등에 사용                             
 
 
 ############################################################################################
@@ -31,10 +47,18 @@ so = swap out
 | `si/so`가 지속 발생  | DB 성능 저하 가능성 높음 
 
 
+
 ############################################################################################
 # Used Memory per Prosess
 ############################################################################################
-ps -eo pid,ppid,user,comm,rss,vsz,%mem --sort=-rss | head -30
+ps -eo pid=,ppid=,user=,comm=,rss=,vsz=,%mem= --sort=-rss | \
+awk 'BEGIN {
+  printf "%-7s %-7s %-8s %-16s %8s %8s %6s\n", "PID", "PPID", "USER", "COMMAND", "RSS(MB)", "VSZ(MB)", "%MEM"
+  printf "%-7s %-7s %-8s %-16s %8s %8s %6s\n", "-------", "-------", "--------", "----------------", "--------", "--------", "------"
+}
+NR<=20 {
+  printf "%-7s %-7s %-8s %-16.16s %8.1f %8.1f %6s\n", $1, $2, $3, $4, $5/1024, $6/1024, $7
+}'
 
 --------------------------------------------------------------------------------------------
 | 기준  | 설명                          
@@ -72,8 +96,8 @@ awk '
 ############################################################################################
 # Memory OOM Case Check
 ############################################################################################
-dmesg -T | egrep -i 'oom|out of memory|killed process|allocation|s1|sentinel'
-egrep -i 'oom|out of memory|killed process|allocation|s1|sentinel' /var/log/messages
+dmesg -T | egrep -i 'oom|out of memory|killed process|allocation|keyword1|keyword2.....'
+egrep -i 'oom|out of memory|killed process|allocation|keyword1|keyword2....' /var/log/messages
 --------------------------------------------------------------------------------------------
 
 
