@@ -34,4 +34,31 @@ ps -eo pid,ppid,user,comm,rss,vsz,%mem --sort=-rss | head -30
 | --- | ----------------------------
 | RSS | 해당 프로세스가 매핑한 메모리 크기         
 | PSS | 공유 메모리를 프로세스 수로 나눈 실질 점유 추정치
+
+
+
+# Memory per Process
+cat /proc/25114/status | egrep 'Name|Pid|VmSize|VmRSS|RssAnon|RssFile|RssShmem|VmSwap|Threads'
+
+| 항목         | 의미     
+| ---------- | -------------------------- 
+| `VmSize`   | 가상 메모리 전체   
+| `VmRSS`    | 실제 물리 메모리에 올라간 크기 
+| `RssAnon`  | 익명 메모리, 프로세스가 직접 쓰는 메모리 성격
+| `RssFile`  | 파일 매핑 기반 메모리 
+| `RssShmem` | 공유 메모리      
+| `VmSwap`   | Swap으로 밀린 메모리   
+| `Threads`  | 쓰레드 수                     
+
+
+
+
+
+
+
+
+
+
+
+
 | VSZ | 가상 주소 공간, 실제 물리 메모리 사용량 아님 
