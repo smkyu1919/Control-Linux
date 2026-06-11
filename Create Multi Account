@@ -1,0 +1,159 @@
+#!/bin/bash
+set -u
+
+############################################################
+# Multi Linux User Create Script
+# Target OS : Ubuntu, RHEL, Amazon Linux 2, Amazon Linux 2023
+# Purpose   : Create users, set fixed password, add wheel sudo
+# 계정 예시 : A01, B01, C01
+# 패스워드 예 : ChangeMe!1234
+############################################################
+
+USERS=("A01" "B01" "C01")
+PASSWORD='ChangeMe!1234'
+
+# true  : wheel 사용자는 패스워드 없이 sudo 가능
+# false : wheel 사용자는 본인 패스워드 입력 후 sudo 가능
+WHEEL_NOPASSWD="false"
+
+LOGIN_SHELL="/bin/bash"
+SUDOERS_FILE="/etc/sudoers.d/99-wheel-admin"
+
+log() {
+  echo "[$(date '+%F %T')] $*"
+}
+
+fail() {
+  echo "[ERROR] $*" >&2
+  exit 1
+}
+
+############################################################
+# 1. Pre-check
+############################################################
+
+[ "$(id -u)" -eq 0 ] || fail "This script must be run as root."
+[ -n "$PASSWORD" ] || fail "PASSWORD is empty."
+
+command -v useradd  >/dev/null 2>&1 || fail "useradd command not found."
+command -v usermod  >/dev/null 2>&1 || fail "usermod command not found."
+command -v chpasswd >/dev/null 2>&1 || fail "chpasswd command not found."
+command -v visudo   >/dev/null 2>&1 || fail "visudo command not found. sudo package may be missing."
+
+if [ -f /etc/os-release ]; then
+  . /etc/os-release
+  OS_NAME="${PRETTY_NAME:-${NAME:-Unknown}}"
+else
+  OS_NAME="$(uname -s)"
+fi
+
+log "Detected OS: $OS_NAME"
+
+if [ ! -x "$LOGIN_SHELL" ]; then
+  if [ -x /bin/sh ]; then
+    LOGIN_SHELL="/bin/sh"
+  else
+    fail "No usable login shell found."
+  fi
+fi
+
+############################################################
+# 2. Create wheel group
+############################################################
+
+if ! getent group wheel >/dev/null 2>&1; then
+  log "Creating group: wheel"
+  groupadd wheel || fail "Failed to create wheel group."
+else
+  log "Group already exists: wheel"
+fi
+
+############################################################
+# 3. Configure sudoers for wheel group
+############################################################
+
+mkdir -p /etc/sudoers.d
+chmod 0750 /etc/sudoers.d
+
+if [ "$WHEEL_NOPASSWD" = "true" ]; then
+  echo '%wheel ALL=(ALL) NOPASSWD: ALL' > "$SUDOERS_FILE"
+else
+  echo '%wheel ALL=(ALL) ALL' > "$SUDOERS_FILE"
+fi
+
+chmod 0440 "$SUDOERS_FILE"
+
+visudo -cf "$SUDOERS_FILE" >/dev/null 2>&1 \
+  || fail "Invalid sudoers file: $SUDOERS_FILE"
+
+# 오래된 이미지에서 /etc/sudoers.d include가 누락된 경우 방어
+if ! grep -Eq '^[[:space:]]*#includedir[[:space:]]+/etc/sudoers.d' /etc/sudoers 2>/dev/null; then
+  cp -p /etc/sudoers "/etc/sudoers.bak.$(date +%Y%m%d%H%M%S)" \
+    || fail "Failed to backup /etc/sudoers."
+
+  echo '#includedir /etc/sudoers.d' >> /etc/sudoers
+
+  visudo -cf /etc/sudoers >/dev/null 2>&1 \
+    || fail "Invalid /etc/sudoers after include update. Restore backup manually."
+
+  log "Added sudoers include directive: #includedir /etc/sudoers.d"
+else
+  log "sudoers include directive already exists."
+fi
+
+############################################################
+# 4. Create users / Set password / Add wheel
+############################################################
+
+for USERNAME in "${USERS[@]}"; do
+  log "Processing user: $USERNAME"
+
+  if id "$USERNAME" >/dev/null 2>&1; then
+    log "User already exists: $USERNAME"
+  else
+    # 일부 Ubuntu/Debian 계열은 대문자 계정명을 제한할 수 있어 --badname 지원 시 재시도
+    if useradd -m -s "$LOGIN_SHELL" -G wheel "$USERNAME" >/dev/null 2>&1; then
+      log "Created user: $USERNAME"
+    elif useradd --badname -m -s "$LOGIN_SHELL" -G wheel "$USERNAME" >/dev/null 2>&1; then
+      log "Created user with --badname: $USERNAME"
+    else
+      fail "Failed to create user: $USERNAME"
+    fi
+  fi
+
+  usermod -aG wheel "$USERNAME" \
+    || fail "Failed to add $USERNAME to wheel group."
+
+  echo "$USERNAME:$PASSWORD" | chpasswd \
+    || fail "Failed to set password for $USERNAME."
+
+  # 기존 잠김 계정일 가능성 방어
+  passwd -u "$USERNAME" >/dev/null 2>&1 || true
+
+  # 패스워드/계정 만료 방지
+  # 보안 정책상 만료 정책을 유지해야 하면 아래 2줄 제거
+  chage -E -1 "$USERNAME" >/dev/null 2>&1 || true
+  chage -M -1 "$USERNAME" >/dev/null 2>&1 || true
+
+  log "OK: $USERNAME is in wheel group and password has been set."
+done
+
+############################################################
+# 5. Result
+############################################################
+
+echo ""
+echo "===== RESULT ====="
+
+for USERNAME in "${USERS[@]}"; do
+  if id "$USERNAME" >/dev/null 2>&1; then
+    echo "User: $USERNAME"
+    echo "  Groups: $(id -nG "$USERNAME")"
+    echo "  Shell : $(getent passwd "$USERNAME" | awk -F: '{print $7}')"
+  else
+    echo "User: $USERNAME - NOT FOUND"
+  fi
+done
+
+echo ""
+echo "[DONE] Users created/updated. Test command after login: sudo -i or sudo su -"
